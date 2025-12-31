@@ -11,13 +11,18 @@ import {
   Dimensions,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import * as Haptics from "expo-haptics";
 import { SwipeCard } from "../components/game/SwipeCard/SwipeCard";
 import { HUD } from "../components/game/HUD";
-import { COLORS, SPACING, TITLES, RADIUS } from "../core/theme/constants";
-import { Card, UserStats } from "../types";
+import { COLORS, SPACING, RADIUS } from "../core/theme/constants";
+import { Card } from "../types";
+import {
+  useStore,
+  selectCurrentXP,
+  selectCurrentLevel,
+  selectComboCount,
+} from "../store";
 
-// --- MOCK DATA ENGINE (Seolah-olah dari AI) ---
+// Mock deck for now - will be replaced with AI generation
 const MOCK_DECK: Card[] = [
   {
     id: "1",
@@ -27,7 +32,7 @@ const MOCK_DECK: Card[] = [
     question: "const a = [1, 2] + [3, 4];\nconsole.log(a);",
     answer: '"1,23,4"',
     explanation:
-      'Di JS, operator + mengkonversi array jadi string dulu. "1,2" + "3,4" = "1,23,4". Weird, right?',
+      'Di JS, operator + mengkonversi array jadi string dulu. "1,2" + "3,4" = "1,23,4".',
     roast: "Kamu pikir ini Python bisa merge list? Welcome to JS hell.",
   },
   {
@@ -50,7 +55,7 @@ const MOCK_DECK: Card[] = [
     answer: "string | number | symbol",
     explanation:
       "Di TypeScript, key object bisa berupa string, number, atau symbol.",
-    roast: 'Pasti kamu jawabnya "string" doang kan? Dasar JS dev.',
+    roast: 'Pasti kamu jawabnya "string" doang kan?',
   },
   {
     id: "4",
@@ -71,24 +76,27 @@ const MOCK_DECK: Card[] = [
     answer: "[] (Array kosong)",
     explanation:
       '0, "", null, undefined, NaN, false adalah falsy. Array kosong [] adalah truthy.',
-    roast: "Hah? Array kosong dibilang falsy? Balik belajar dasar lagi gih.",
+    roast: "Array kosong dibilang falsy? Balik belajar dasar lagi gih.",
   },
 ];
 
 export default function App() {
-  // State Kartu
-  const [deck, setDeck] = useState<Card[]>(MOCK_DECK);
+  // Zustand State
+  const currentXP = useStore(selectCurrentXP);
+  const currentLevel = useStore(selectCurrentLevel);
+  const comboCount = useStore(selectComboCount);
+  const currentTitle = useStore((state) => state.currentTitle);
 
-  // State Gamifikasi
-  const [stats, setStats] = useState<UserStats>({
-    level: 1,
-    currentXP: 0,
-    nextLevelXP: 100,
-    combo: 0,
-    title: TITLES[0],
-  });
+  const recordCorrect = useStore((state) => state.recordCorrect);
+  const recordWrong = useStore((state) => state.recordWrong);
+  const startSession = useStore((state) => state.startSession);
+  const endSession = useStore((state) => state.endSession);
+  const setQueue = useStore((state) => state.setQueue);
 
-  // State Feedback (Roast/LevelUp)
+  // Local state for deck
+  const [localDeck, setLocalDeck] = useState<Card[]>([]);
+
+  // Modal state
   const [modalVisible, setModalVisible] = useState(false);
   const [modalContent, setModalContent] = useState({
     title: "",
@@ -96,94 +104,71 @@ export default function App() {
     type: "info",
   });
 
-  // Logic Swipe
+  // Initialize deck on mount
+  useEffect(() => {
+    startSession();
+    setQueue(MOCK_DECK);
+    setLocalDeck(MOCK_DECK);
+  }, []);
+
+  // Handle swipe logic
   const handleSwipe = (direction: "left" | "right", card: Card) => {
-    // Hapus kartu dari deck visual
+    // Remove card from visual deck
     setTimeout(() => {
-      setDeck((prev) => prev.filter((c) => c.id !== card.id));
+      setLocalDeck((prev) => prev.filter((c) => c.id !== card.id));
     }, 200);
 
     if (direction === "right") {
-      // BENAR / PAHAM
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      handleCorrect(card);
+      // CORRECT
+      recordCorrect();
     } else {
-      // SALAH / LUPA
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      handleWrong(card);
+      // WRONG
+      recordWrong();
+      showRoast(card.roast);
     }
   };
 
-  const handleCorrect = (card: Card) => {
-    setStats((prev) => {
-      const xpGain = 20 + prev.combo * 5; // Combo multiplier
-      const newXP = prev.currentXP + xpGain;
-
-      // Cek Level Up
-      if (newXP >= prev.nextLevelXP) {
-        // Trigger Level Up
-        setTimeout(() => showLevelUp(prev.level + 1), 500);
-        return {
-          ...prev,
-          level: prev.level + 1,
-          currentXP: newXP - prev.nextLevelXP, // Sisa XP carry over
-          nextLevelXP: Math.floor(prev.nextLevelXP * 1.5), // Makin susah
-          combo: prev.combo + 1,
-          title: TITLES[Math.min(prev.level, TITLES.length - 1)],
-        };
-      }
-
-      return {
-        ...prev,
-        currentXP: newXP,
-        combo: prev.combo + 1,
-      };
-    });
-  };
-
-  const handleWrong = (card: Card) => {
-    // Reset Combo & Tampilkan Roast
-    setStats((prev) => ({ ...prev, combo: 0 }));
-
-    // Tampilkan modal Roast (opsional, biar seru)
+  const showRoast = (message: string) => {
     setModalContent({
       title: "WRONG!",
-      message: card.roast,
+      message,
       type: "roast",
     });
     setModalVisible(true);
   };
 
-  const showLevelUp = (newLevel: number) => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setModalContent({
-      title: "LEVEL UP!",
-      message: `You are now Level ${newLevel}. Keep grinding!`,
-      type: "levelup",
-    });
-    setModalVisible(true);
+  const resetDeck = () => {
+    setLocalDeck(MOCK_DECK);
+    setQueue(MOCK_DECK);
+    startSession();
   };
 
-  const resetDeck = () => {
-    setDeck(MOCK_DECK);
-    setStats((prev) => ({ ...prev, combo: 0 }));
-  };
+  // Calculate next level XP
+  const nextLevelXP = Math.floor(100 * Math.pow(currentLevel + 1, 1.5));
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar barStyle="light-content" />
       <SafeAreaView style={styles.container}>
-        {/* HEADS UP DISPLAY (XP & Level) */}
-        <HUD stats={stats} />
+        {/* HUD */}
+        <HUD
+          stats={{
+            level: currentLevel,
+            currentXP,
+            nextLevelXP,
+            combo: comboCount,
+            title: currentTitle,
+          }}
+        />
 
-        {/* DECK AREA */}
+        {/* Deck Area */}
         <View style={styles.deckContainer}>
-          {deck.length > 0 ? (
-            deck.map((card, index) => {
-              // Render logic: Hanya render 2 kartu teratas untuk performa
-              if (index < deck.length - 2) return null;
+          {localDeck.length > 0 ? (
+            localDeck.map((card, index) => {
+              // Only render top 2 cards for performance
+              if (index < localDeck.length - 2) return null;
 
-              const isTopCard = index === deck.length - 1;
+              const isTopCard = index === localDeck.length - 1;
 
               return (
                 <View
@@ -198,12 +183,11 @@ export default function App() {
                       onSwipeRight={() => handleSwipe("right", card)}
                     />
                   ) : (
-                    // Kartu di belakangnya (Dummy visual)
                     <View
                       style={[
                         styles.cardPlaceholder,
                         {
-                          top: 20 * (deck.length - 1 - index),
+                          top: 20 * (localDeck.length - 1 - index),
                           transform: [{ scale: 0.95 }],
                         },
                       ]}
@@ -213,21 +197,21 @@ export default function App() {
               );
             })
           ) : (
-            // EMPTY STATE
+            // Empty State
             <View style={styles.emptyState}>
-              <Text style={styles.emptyIcon}>💾</Text>
-              <Text style={styles.emptyTitle}>Deck Cleared!</Text>
+              <Text style={styles.emptyIcon}>DECK CLEARED</Text>
+              <Text style={styles.emptyTitle}>Session Complete</Text>
               <Text style={styles.emptySubtitle}>
-                You survived the first wave.
+                You earned {currentXP} XP this session
               </Text>
               <Pressable style={styles.button} onPress={resetDeck}>
-                <Text style={styles.buttonText}>RESTART RUN</Text>
+                <Text style={styles.buttonText}>START NEW SESSION</Text>
               </Pressable>
             </View>
           )}
         </View>
 
-        {/* MODAL (Roast / Level Up) */}
+        {/* Modal for Roast/Feedback */}
         <Modal
           animationType="slide"
           transparent={true}
@@ -273,7 +257,7 @@ export default function App() {
                 onPress={() => setModalVisible(false)}
               >
                 <Text style={styles.modalButtonText}>
-                  {modalContent.type === "roast" ? "OUCH, OKAY." : "LET'S GO!"}
+                  {modalContent.type === "roast" ? "GOT IT" : "CONTINUE"}
                 </Text>
               </Pressable>
             </View>
@@ -307,7 +291,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  emptyIcon: { fontSize: 60, marginBottom: SPACING.md },
+  emptyIcon: {
+    fontSize: 48,
+    fontWeight: "900",
+    color: COLORS.accent.green,
+    marginBottom: SPACING.md,
+  },
   emptyTitle: {
     color: COLORS.text.primary,
     fontSize: 24,
@@ -330,7 +319,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 16,
   },
-  // Modal Styles
   modalOverlay: {
     flex: 1,
     justifyContent: "center",
@@ -360,7 +348,7 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md, // Corrected from sm to md based on design consistency
+    paddingVertical: SPACING.md,
     borderRadius: RADIUS.md,
     width: "100%",
     alignItems: "center",
