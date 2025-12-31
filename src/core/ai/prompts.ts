@@ -1,5 +1,5 @@
 // src/core/ai/prompts.ts
-import { GenerateRequest } from "./geminiClient";
+import { GenerateRequest } from "../ai/geminiClient";
 
 export function buildSystemPrompt(): string {
   return `You are a witty, slightly sarcastic senior software engineer who loves teaching through interactive code challenges.

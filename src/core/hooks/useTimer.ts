@@ -1,10 +1,10 @@
 // src/core/hooks/useTimer.ts
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 export function useTimer(initialSeconds: number = 0) {
   const [seconds, setSeconds] = useState(initialSeconds);
   const [isRunning, setIsRunning] = useState(false);
-  const intervalRef = useRef<NodeJS.Timeout>();
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (isRunning) {
@@ -35,8 +35,6 @@ export function useTimer(initialSeconds: number = 0) {
 }
 
 // src/core/hooks/useDebounce.ts
-import { useState, useEffect } from "react";
-
 export function useDebounce<T>(value: T, delay: number = 500): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
@@ -54,8 +52,6 @@ export function useDebounce<T>(value: T, delay: number = 500): T {
 }
 
 // src/core/hooks/useResponseTime.ts
-import { useState, useCallback } from "react";
-
 export function useResponseTime() {
   const [startTime, setStartTime] = useState<number | null>(null);
   const [responseTime, setResponseTime] = useState<number | null>(null);
@@ -83,7 +79,6 @@ export function useResponseTime() {
 }
 
 // src/core/hooks/useNetworkStatus.ts
-import { useState, useEffect } from "react";
 import NetInfo from "@react-native-community/netinfo";
 
 export function useNetworkStatus() {
@@ -103,7 +98,6 @@ export function useNetworkStatus() {
 }
 
 // src/core/hooks/useKeyboard.ts
-import { useEffect, useState } from "react";
 import { Keyboard, KeyboardEvent } from "react-native";
 
 export function useKeyboard() {
@@ -134,10 +128,8 @@ export function useKeyboard() {
 }
 
 // src/core/hooks/usePrevious.ts
-import { useRef, useEffect } from "react";
-
 export function usePrevious<T>(value: T): T | undefined {
-  const ref = useRef<T>();
+  const ref = useRef<T | undefined>(undefined);
 
   useEffect(() => {
     ref.current = value;
@@ -147,8 +139,6 @@ export function usePrevious<T>(value: T): T | undefined {
 }
 
 // src/core/hooks/useToggle.ts
-import { useState, useCallback } from "react";
-
 export function useToggle(
   initialValue: boolean = false
 ): [boolean, () => void] {
@@ -162,10 +152,8 @@ export function useToggle(
 }
 
 // src/core/hooks/useInterval.ts
-import { useEffect, useRef } from "react";
-
 export function useInterval(callback: () => void, delay: number | null) {
-  const savedCallback = useRef<() => void>();
+  const savedCallback = useRef<(() => void) | undefined>(undefined);
 
   useEffect(() => {
     savedCallback.current = callback;

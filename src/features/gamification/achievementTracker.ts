@@ -47,6 +47,8 @@ export class AchievementTracker {
 
   private async unlockAchievement(achievement: Achievement): Promise<boolean> {
     try {
+      const now = Date.now();
+
       await db.insert(achievements).values({
         id: `${this.userId}_${achievement.id}`,
         userId: this.userId,
@@ -59,7 +61,7 @@ export class AchievementTracker {
         isUnlocked: true,
         progressCurrent: 100,
         progressTarget: 100,
-        unlockedAt: new Date(),
+        unlockedAt: now,
       });
 
       // Trigger haptic feedback

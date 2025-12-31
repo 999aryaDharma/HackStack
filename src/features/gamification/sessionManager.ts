@@ -14,8 +14,8 @@ export interface SessionData {
   cardsWrong: number;
   maxCombo: number;
   xpEarned: number;
-  startedAt: Date;
-  endedAt?: Date;
+  startedAt: number; // Unix timestamp
+  endedAt?: number;
   durationMs?: number;
 }
 
@@ -38,11 +38,9 @@ export class SessionManager {
     this.userId = userId;
   }
 
-  /**
-   * Start a new session
-   */
   async startSession(language: string, difficulty: string): Promise<string> {
     const sessionId = this.generateSessionId();
+    const now = Date.now();
 
     try {
       await db.insert(sessions).values({
@@ -50,12 +48,17 @@ export class SessionManager {
         userId: this.userId,
         language,
         difficulty,
+        mode: "arcade",
         cardsTotal: 0,
         cardsCorrect: 0,
         cardsWrong: 0,
+        cardsSkipped: 0,
         maxCombo: 0,
         xpEarned: 0,
-        startedAt: new Date(),
+        startedAt: now,
+        endedAt: undefined,
+        durationMs: undefined,
+        synced: false,
       });
 
       this.currentSessionId = sessionId;
@@ -68,9 +71,6 @@ export class SessionManager {
     }
   }
 
-  /**
-   * End current session
-   */
   async endSession(stats: {
     correct: number;
     wrong: number;
@@ -81,7 +81,7 @@ export class SessionManager {
       throw new Error("No active session");
     }
 
-    const endedAt = new Date();
+    const endedAt = Date.now();
 
     try {
       // Get session start time
@@ -96,7 +96,7 @@ export class SessionManager {
       }
 
       const startedAt = session[0].startedAt;
-      const durationMs = endedAt.getTime() - startedAt.getTime();
+      const durationMs = endedAt - startedAt;
 
       // Update session
       await db
@@ -143,14 +143,13 @@ export class SessionManager {
     }
   }
 
-  /**
-   * Update profile stats
-   */
   private async updateProfileStats(
     xpEarned: number,
     cardsSwiped: number
   ): Promise<void> {
     try {
+      const now = Date.now();
+
       const profile = await db
         .select()
         .from(profiles)
@@ -159,13 +158,21 @@ export class SessionManager {
 
       if (profile.length === 0) {
         logger.warn("Profile not found, creating new one");
+
         await db.insert(profiles).values({
           userId: this.userId,
           currentXP: xpEarned,
           currentLevel: 1,
+          currentTitle: "Script Kiddie",
           totalCardsSwiped: cardsSwiped,
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          dailyStreak: 0,
+          longestStreak: 0,
+          lastActiveDate: undefined,
+          soundEnabled: true,
+          hapticsEnabled: true,
+          theme: "dark",
+          createdAt: now,
+          updatedAt: now,
         });
       } else {
         await db
@@ -173,7 +180,7 @@ export class SessionManager {
           .set({
             currentXP: profile[0].currentXP + xpEarned,
             totalCardsSwiped: profile[0].totalCardsSwiped + cardsSwiped,
-            updatedAt: new Date(),
+            updatedAt: now,
           })
           .where(eq(profiles.userId, this.userId));
       }
@@ -182,23 +189,16 @@ export class SessionManager {
     }
   }
 
-  /**
-   * Get session history
-   */
   async getSessionHistory(limit: number = 10): Promise<SessionData[]> {
     const history = await db
       .select()
       .from(sessions)
       .where(eq(sessions.userId, this.userId))
-      .orderBy(sessions.startedAt)
       .limit(limit);
 
     return history as SessionData[];
   }
 
-  /**
-   * Get session statistics
-   */
   async getSessionStats(): Promise<{
     totalSessions: number;
     totalCards: number;
@@ -229,9 +229,6 @@ export class SessionManager {
     };
   }
 
-  /**
-   * Generate unique session ID
-   */
   private generateSessionId(): string {
     return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }

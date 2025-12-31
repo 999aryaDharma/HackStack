@@ -18,14 +18,14 @@ export class ReviewScheduler {
    * Get cards due for review
    */
   async getDueCards(limit: number = 20): Promise<Card[]> {
-    const now = new Date();
+    const nowTimestamp = Date.now();
 
     const dueCards = await db
       .select()
       .from(cards)
       .where(
         or(
-          lte(cards.nextReview, now),
+          lte(cards.nextReview, nowTimestamp),
           isNull(cards.nextReview),
           eq(cards.status, "new")
         )
@@ -39,12 +39,12 @@ export class ReviewScheduler {
    * Get overdue cards (past due by > 1 day)
    */
   async getOverdueCards(): Promise<Card[]> {
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const oneDayAgoTimestamp = Date.now() - 24 * 60 * 60 * 1000;
 
     const overdueCards = await db
       .select()
       .from(cards)
-      .where(and(lte(cards.nextReview, oneDayAgo)));
+      .where(and(lte(cards.nextReview, oneDayAgoTimestamp)));
 
     return overdueCards.map(this.dbToCard);
   }
@@ -82,8 +82,9 @@ export class ReviewScheduler {
     // Calculate next state
     const nextState = calculateNextReview(currentState, quality);
 
-    // Calculate next review date
-    const nextReviewDate = getNextReviewDate(nextState.interval);
+    // Calculate next review date (returns Date object)
+    const nextReviewDateObj = getNextReviewDate(nextState.interval);
+    const nextReviewTimestamp = nextReviewDateObj.getTime();
 
     // Calculate mastery score
     const masteryScore = calculateMasteryScore(nextState);
@@ -108,7 +109,7 @@ export class ReviewScheduler {
     await db
       .update(cards)
       .set({
-        nextReview: nextReviewDate,
+        nextReview: nextReviewTimestamp,
         intervalDays: nextState.interval,
         easeFactor: nextState.easeFactor,
         reviewCount: nextState.repetitions,
@@ -126,7 +127,6 @@ export class ReviewScheduler {
    * Add a failed card to review system
    */
   async addToReviewDeck(card: Card): Promise<void> {
-    // Check if card already exists
     const existing = await db
       .select()
       .from(cards)
@@ -134,12 +134,11 @@ export class ReviewScheduler {
       .limit(1);
 
     if (existing.length > 0) {
-      // Already exists - just update it
       await this.recordReview(card.id, false);
     } else {
-      // New card - insert with initial SRS state
       const initialState = createInitialSRSState();
       const nextReview = getNextReviewDate(initialState.interval);
+      const now = Date.now();
 
       await db.insert(cards).values({
         id: card.id,
@@ -151,16 +150,19 @@ export class ReviewScheduler {
         explanation: card.explanation,
         roast: card.roast || "",
         source: "session",
-        createdAt: new Date(),
+        aiModel: undefined,
+        topic: undefined,
+        createdAt: now,
         status: "learning",
         masteryScore: 0,
-        nextReview,
+        nextReview: nextReview.getTime(),
         intervalDays: initialState.interval,
         easeFactor: initialState.easeFactor,
         reviewCount: 0,
         timesSeen: 1,
         timesCorrect: 0,
         timesWrong: 1,
+        avgResponseTime: undefined,
       });
     }
   }
@@ -174,19 +176,19 @@ export class ReviewScheduler {
     learning: number;
     mastered: number;
   }> {
-    const now = new Date();
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const nowTimestamp = Date.now();
+    const oneDayAgoTimestamp = Date.now() - 24 * 60 * 60 * 1000;
 
     const [dueToday, overdue, learning, mastered] = await Promise.all([
       db
         .select()
         .from(cards)
-        .where(lte(cards.nextReview, now))
+        .where(lte(cards.nextReview, nowTimestamp))
         .then((r) => r.length),
       db
         .select()
         .from(cards)
-        .where(lte(cards.nextReview, oneDayAgo))
+        .where(lte(cards.nextReview, oneDayAgoTimestamp))
         .then((r) => r.length),
       db
         .select()

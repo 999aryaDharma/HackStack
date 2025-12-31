@@ -1,11 +1,10 @@
 // src/features/deck/deckService.ts
-import { Card, Difficulty } from "../../types";
+import { Card, Loadout } from "../../types";
 import { getGeminiClient } from "../../core/ai/geminiClient";
 import { db } from "../../core/db/client";
 import { cards } from "../../core/db/schema";
-import { eq, and, inArray, gte } from "drizzle-orm";
+import { eq, and, gte } from "drizzle-orm";
 import { logger } from "../../utils/logger";
-import { Loadout } from "../../store/slices/deckSlice";
 
 export class DeckService {
   private geminiClient = getGeminiClient();
@@ -33,7 +32,7 @@ export class DeckService {
         topics: loadout.topics,
         difficulty: loadout.difficulty,
         count: needed,
-        previousTopics: [], // TODO: Track recent topics
+        previousTopics: [],
       });
 
       // 3. Save new cards to cache
@@ -56,7 +55,7 @@ export class DeckService {
     loadout: Loadout,
     limit: number
   ): Promise<Card[]> {
-    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const oneWeekAgoTimestamp = Date.now() - 7 * 24 * 60 * 60 * 1000;
 
     const cachedCards = await db
       .select()
@@ -66,7 +65,7 @@ export class DeckService {
           eq(cards.lang, loadout.language),
           eq(cards.difficulty, loadout.difficulty),
           eq(cards.source, "ai"),
-          gte(cards.createdAt, oneWeekAgo)
+          gte(cards.createdAt, oneWeekAgoTimestamp)
         )
       )
       .limit(limit);
@@ -79,28 +78,34 @@ export class DeckService {
    */
   private async saveToCache(newCards: Card[]): Promise<void> {
     try {
-      await db.insert(cards).values(
-        newCards.map((card) => ({
-          id: card.id,
-          type: card.type,
-          lang: card.lang,
-          difficulty: card.difficulty,
-          question: card.question,
-          answer: card.answer,
-          explanation: card.explanation,
-          roast: card.roast || "",
-          source: "ai",
-          createdAt: new Date(),
-          status: "new",
-          masteryScore: 0,
-          intervalDays: 1,
-          easeFactor: 2.5,
-          reviewCount: 0,
-          timesSeen: 0,
-          timesCorrect: 0,
-          timesWrong: 0,
-        }))
-      );
+      const now = Date.now();
+
+      const cardsToInsert = newCards.map((card) => ({
+        id: card.id,
+        type: card.type,
+        lang: card.lang,
+        difficulty: card.difficulty,
+        question: card.question,
+        answer: card.answer,
+        explanation: card.explanation,
+        roast: card.roast || "",
+        source: "ai" as const,
+        aiModel: undefined,
+        topic: undefined,
+        createdAt: now,
+        status: "new" as const,
+        masteryScore: 0,
+        nextReview: undefined,
+        intervalDays: 1,
+        easeFactor: 2.5,
+        reviewCount: 0,
+        timesSeen: 0,
+        timesCorrect: 0,
+        timesWrong: 0,
+        avgResponseTime: undefined,
+      }));
+
+      await db.insert(cards).values(cardsToInsert);
 
       logger.debug(`Saved ${newCards.length} cards to cache`);
     } catch (error) {
@@ -128,11 +133,16 @@ export class DeckService {
    * Clear old cache entries (30+ days)
    */
   async clearOldCache(): Promise<void> {
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgoTimestamp = Date.now() - 30 * 24 * 60 * 60 * 1000;
 
     await db
       .delete(cards)
-      .where(and(eq(cards.source, "ai"), gte(cards.createdAt, thirtyDaysAgo)));
+      .where(
+        and(
+          eq(cards.source, "ai"),
+          gte(cards.createdAt, thirtyDaysAgoTimestamp)
+        )
+      );
 
     logger.debug("Cleared old cache");
   }

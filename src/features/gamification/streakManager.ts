@@ -2,7 +2,7 @@
 import { db } from "../../core/db/client";
 import { profiles } from "../../core/db/schema";
 import { eq } from "drizzle-orm";
-import { logger } from "../../utils/validation";
+import { logger } from "../../utils/logger";
 import {
   getStartOfDay,
   getEndOfDay,
@@ -25,10 +25,6 @@ export class StreakManager {
     this.userId = userId;
   }
 
-  /**
-   * Check and update streak status
-   * Call this on app open or session completion
-   */
   async checkAndUpdateStreak(): Promise<StreakInfo> {
     try {
       logger.info("Checking streak status", { userId: this.userId });
@@ -44,7 +40,6 @@ export class StreakManager {
       const todayStart = getStartOfDay(now);
       const todayEnd = getEndOfDay(now);
 
-      // Check if user was active today
       if (lastActiveDate) {
         const lastActive = new Date(lastActiveDate);
         const isActiveToday =
@@ -56,7 +51,6 @@ export class StreakManager {
         }
       }
 
-      // Check if streak is broken or continuing
       const streakInfo = await this.calculateStreakStatus(
         dailyStreak,
         longestStreak,
@@ -71,9 +65,6 @@ export class StreakManager {
     }
   }
 
-  /**
-   * Record activity to maintain/increment streak
-   */
   async recordActivity(): Promise<StreakInfo> {
     try {
       logger.info("Recording activity for streak", { userId: this.userId });
@@ -86,7 +77,6 @@ export class StreakManager {
       const now = new Date();
       const todayStart = getStartOfDay(now);
 
-      // Check if already recorded today
       if (profile.lastActiveDate) {
         const lastActive = new Date(profile.lastActiveDate);
         if (lastActive >= todayStart) {
@@ -95,7 +85,6 @@ export class StreakManager {
         }
       }
 
-      // Calculate new streak
       const newStreak = await this.incrementStreak(profile);
 
       logger.info("Streak updated", newStreak);
@@ -106,9 +95,6 @@ export class StreakManager {
     }
   }
 
-  /**
-   * Get current streak information
-   */
   async getStreakInfo(): Promise<StreakInfo> {
     const profile = await this.getProfile();
     if (!profile) {
@@ -125,23 +111,6 @@ export class StreakManager {
     return this.buildStreakInfo(profile, await this.isActiveToday());
   }
 
-  /**
-   * Use a streak freeze token (premium feature)
-   */
-  async useStreakFreeze(): Promise<boolean> {
-    try {
-      // TODO: Implement freeze token logic
-      logger.info("Streak freeze used", { userId: this.userId });
-      return true;
-    } catch (error) {
-      logger.error("Failed to use streak freeze", error);
-      return false;
-    }
-  }
-
-  /**
-   * Calculate streak status based on last activity
-   */
   private async calculateStreakStatus(
     currentStreak: number,
     longestStreak: number,
@@ -150,7 +119,6 @@ export class StreakManager {
     const now = new Date();
 
     if (!lastActiveDate) {
-      // First time user
       return {
         currentStreak: 0,
         longestStreak: 0,
@@ -167,7 +135,6 @@ export class StreakManager {
     const yesterdayStart = getStartOfDay(yesterday);
     const yesterdayEnd = getEndOfDay(yesterday);
 
-    // Was active yesterday - streak can continue
     const wasActiveYesterday =
       lastActive >= yesterdayStart && lastActive <= yesterdayEnd;
 
@@ -182,7 +149,6 @@ export class StreakManager {
       };
     }
 
-    // Check if within grace period (until 5am)
     if (isWithinStreakGracePeriod()) {
       return {
         currentStreak,
@@ -194,7 +160,6 @@ export class StreakManager {
       };
     }
 
-    // Streak is broken
     logger.warn("Streak broken", {
       userId: this.userId,
       lastActiveDate,
@@ -205,7 +170,7 @@ export class StreakManager {
       .update(profiles)
       .set({
         dailyStreak: 0,
-        updatedAt: new Date(),
+        updatedAt: Date.now(),
       })
       .where(eq(profiles.userId, this.userId));
 
@@ -219,12 +184,10 @@ export class StreakManager {
     };
   }
 
-  /**
-   * Increment streak counter
-   */
   private async incrementStreak(profile: any): Promise<StreakInfo> {
     const newStreak = profile.dailyStreak + 1;
     const newLongest = Math.max(newStreak, profile.longestStreak);
+    const now = Date.now();
 
     await db
       .update(profiles)
@@ -232,7 +195,7 @@ export class StreakManager {
         dailyStreak: newStreak,
         longestStreak: newLongest,
         lastActiveDate: new Date().toISOString(),
-        updatedAt: new Date(),
+        updatedAt: now,
       })
       .where(eq(profiles.userId, this.userId));
 
@@ -246,9 +209,6 @@ export class StreakManager {
     };
   }
 
-  /**
-   * Check if user is active today
-   */
   private async isActiveToday(): Promise<boolean> {
     const profile = await this.getProfile();
     if (!profile || !profile.lastActiveDate) return false;
@@ -259,9 +219,6 @@ export class StreakManager {
     return lastActive >= todayStart;
   }
 
-  /**
-   * Get user profile
-   */
   private async getProfile() {
     const result = await db
       .select()
@@ -272,9 +229,6 @@ export class StreakManager {
     return result[0] || null;
   }
 
-  /**
-   * Build streak info object
-   */
   private buildStreakInfo(profile: any, isActiveToday: boolean): StreakInfo {
     return {
       currentStreak: profile.dailyStreak,
@@ -285,10 +239,4 @@ export class StreakManager {
       nextDeadline: getEndOfDay(new Date()),
     };
   }
-}
-
-// Notification helper
-export async function scheduleStreakReminder(streakInfo: StreakInfo) {
-  // TODO: Implement push notification scheduling
-  logger.info("Streak reminder scheduled", streakInfo);
 }

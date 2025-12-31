@@ -1,9 +1,4 @@
-// src/utils/logger.ts
-// ============================================================================
-// CENTRALIZED LOGGING UTILITY
-// Provides consistent logging across the application
-// ============================================================================
-
+// src/core/utils/logger.ts
 type LogLevel = "debug" | "info" | "warn" | "error";
 
 interface LogContext {
@@ -11,7 +6,6 @@ interface LogContext {
 }
 
 class Logger {
-  private isDevelopment = __DEV__;
   private minLevel: LogLevel = __DEV__ ? "debug" : "info";
 
   private shouldLog(level: LogLevel): boolean {
@@ -57,30 +51,18 @@ class Logger {
     }
   }
 
-  /**
-   * Log debug information (development only)
-   */
   debug(message: string, context?: LogContext) {
     this.log("debug", message, context);
   }
 
-  /**
-   * Log informational messages
-   */
   info(message: string, context?: LogContext) {
     this.log("info", message, context);
   }
 
-  /**
-   * Log warnings
-   */
   warn(message: string, context?: LogContext) {
     this.log("warn", message, context);
   }
 
-  /**
-   * Log errors
-   */
   error(message: string, error?: unknown, context?: LogContext) {
     const errorContext: LogContext = { ...context };
 
@@ -97,9 +79,6 @@ class Logger {
     this.log("error", message, errorContext);
   }
 
-  /**
-   * Measure and log execution time of async functions
-   */
   async time<T>(
     label: string,
     fn: () => Promise<T>,
@@ -126,9 +105,6 @@ class Logger {
     }
   }
 
-  /**
-   * Measure and log execution time of sync functions
-   */
   timeSync<T>(label: string, fn: () => T, context?: LogContext): T {
     const start = performance.now();
     this.debug(`${label} - Started`, context);
@@ -151,17 +127,11 @@ class Logger {
     }
   }
 
-  /**
-   * Set minimum log level
-   */
   setMinLevel(level: LogLevel) {
     this.minLevel = level;
     this.info("Log level changed", { newLevel: level });
   }
 
-  /**
-   * Create a scoped logger with default context
-   */
   scope(defaultContext: LogContext): Logger {
     const scopedLogger = new Logger();
 

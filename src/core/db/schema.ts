@@ -1,14 +1,5 @@
 // src/core/db/schema.ts
-// ============================================================================
-// DATABASE SCHEMA DEFINITIONS
-// SQLite tables using Drizzle ORM
-// ============================================================================
-
 import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
-import { sql } from "drizzle-orm";
-
-// Helper untuk timestamp default
-const timestamp = () => sql`(cast(unixepoch() as integer))`;
 
 // ============================================================================
 // USER PROFILE TABLE
@@ -37,9 +28,9 @@ export const profiles = sqliteTable("profiles", {
     .notNull(),
   theme: text("theme").default("dark").notNull(),
 
-  // Metadata
-  createdAt: integer("created_at").default(timestamp()).notNull(),
-  updatedAt: integer("updated_at").default(timestamp()).notNull(),
+  // Metadata - stored as Unix timestamp (number)
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
 });
 
 // ============================================================================
@@ -49,22 +40,22 @@ export const cards = sqliteTable("cards", {
   id: text("id").primaryKey(),
 
   // Content
-  type: text("type").notNull(), // snippet | quiz | trivia
-  lang: text("lang").notNull(), // JS | TS | Python | Go
-  difficulty: text("difficulty").notNull(), // easy | medium | hard | god
+  type: text("type").notNull(),
+  lang: text("lang").notNull(),
+  difficulty: text("difficulty").notNull(),
   question: text("question").notNull(),
   answer: text("answer").notNull(),
   explanation: text("explanation").notNull(),
   roast: text("roast").default("").notNull(),
 
   // Metadata
-  source: text("source").default("ai").notNull(), // ai | bundled | community
+  source: text("source").default("ai").notNull(),
   aiModel: text("ai_model"),
   topic: text("topic"),
-  createdAt: integer("created_at").default(timestamp()).notNull(),
+  createdAt: integer("created_at").notNull(),
 
   // SRS (Spaced Repetition System)
-  status: text("status").default("new").notNull(), // new | learning | review | mastered
+  status: text("status").default("new").notNull(),
   masteryScore: integer("mastery_score").default(0).notNull(),
   nextReview: integer("next_review"), // Unix timestamp
   intervalDays: integer("interval_days").default(1).notNull(),
@@ -75,7 +66,7 @@ export const cards = sqliteTable("cards", {
   timesSeen: integer("times_seen").default(0).notNull(),
   timesCorrect: integer("times_correct").default(0).notNull(),
   timesWrong: integer("times_wrong").default(0).notNull(),
-  avgResponseTime: integer("avg_response_time"), // Milliseconds
+  avgResponseTime: integer("avg_response_time"),
 });
 
 // ============================================================================
@@ -88,7 +79,7 @@ export const sessions = sqliteTable("sessions", {
   // Configuration
   language: text("language").notNull(),
   difficulty: text("difficulty").notNull(),
-  mode: text("mode").default("arcade").notNull(), // arcade | review | challenge
+  mode: text("mode").default("arcade").notNull(),
 
   // Statistics
   cardsTotal: integer("cards_total").default(0).notNull(),
@@ -98,7 +89,7 @@ export const sessions = sqliteTable("sessions", {
   maxCombo: integer("max_combo").default(0).notNull(),
   xpEarned: integer("xp_earned").default(0).notNull(),
 
-  // Timing
+  // Timing - Unix timestamps
   startedAt: integer("started_at").notNull(),
   endedAt: integer("ended_at"),
   durationMs: integer("duration_ms"),
@@ -118,8 +109,8 @@ export const achievements = sqliteTable("achievements", {
   achievementId: text("achievement_id").notNull(),
   name: text("name").notNull(),
   description: text("description").notNull(),
-  category: text("category").notNull(), // progress | skill | streak | mastery
-  rarity: text("rarity").notNull(), // common | rare | epic | legendary
+  category: text("category").notNull(),
+  rarity: text("rarity").notNull(),
   xpReward: integer("xp_reward").notNull(),
 
   // Progress
@@ -129,25 +120,6 @@ export const achievements = sqliteTable("achievements", {
   progressCurrent: integer("progress_current").default(0).notNull(),
   progressTarget: integer("progress_target").notNull(),
   unlockedAt: integer("unlocked_at"), // Unix timestamp
-});
-
-// ============================================================================
-// CARD INTERACTIONS TABLE (Analytics)
-// ============================================================================
-export const cardInteractions = sqliteTable("card_interactions", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: text("user_id").notNull(),
-  cardId: text("card_id").notNull(),
-  sessionId: text("session_id").notNull(),
-
-  // Interaction data
-  action: text("action").notNull(), // correct | wrong | skip
-  responseTimeMs: integer("response_time_ms").notNull(),
-  comboCount: integer("combo_count").default(0).notNull(),
-  userAnswer: text("user_answer"), // For quiz types
-
-  // Timestamp
-  createdAt: integer("created_at").default(timestamp()).notNull(),
 });
 
 // ============================================================================
@@ -164,6 +136,3 @@ export type NewSession = typeof sessions.$inferInsert;
 
 export type Achievement = typeof achievements.$inferSelect;
 export type NewAchievement = typeof achievements.$inferInsert;
-
-export type CardInteraction = typeof cardInteractions.$inferSelect;
-export type NewCardInteraction = typeof cardInteractions.$inferInsert;

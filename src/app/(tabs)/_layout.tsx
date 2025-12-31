@@ -4,10 +4,10 @@ import { Stack } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
-import { runMigrations, seedDatabase } from "../core/db/client";
-import { logger } from "../utils/validation";
-import { COLORS } from "../core/theme/constants";
-import OnboardingScreen from "./onboarding";
+import { runMigrations, seedDatabase } from "../../core/db/client";
+import { logger } from "../../utils/validation";
+import { COLORS } from "../../core/theme/constants";
+import OnboardingScreen from "../onboarding";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Prevent auto-hiding splash screen
