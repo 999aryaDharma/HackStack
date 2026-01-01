@@ -9,6 +9,7 @@ import {
   Pressable,
   ActivityIndicator,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { COLORS, SPACING, RADIUS } from "../core/theme/constants";
 import { ReviewScheduler } from "../features/spaced-rep/reviewScheduler";
 import { Card } from "../types";
@@ -79,10 +80,10 @@ function MonsterCard({
   );
 }
 
-export default function DungeonScreen({ navigation }: any) {
+export default function DungeonScreen() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [dueCards, setDueCards] = useState<any[]>([]);
-  const [overdueCards, setOverdueCards] = useState<any[]>([]);
   const [stats, setStats] = useState({
     dueToday: 0,
     overdue: 0,
@@ -100,14 +101,13 @@ export default function DungeonScreen({ navigation }: any) {
     try {
       setLoading(true);
 
-      const [due, overdue, reviewStats] = await Promise.all([
+      const [due, , reviewStats] = await Promise.all([
         reviewScheduler.getDueCards(20),
         reviewScheduler.getOverdueCards(),
         reviewScheduler.getReviewStats(),
       ]);
 
       setDueCards(due);
-      setOverdueCards(overdue);
       setStats(reviewStats);
     } catch (error) {
       console.error("Failed to load review data:", error);
@@ -117,13 +117,13 @@ export default function DungeonScreen({ navigation }: any) {
   };
 
   const handleStartQuickReview = () => {
-    // TODO: Navigate to review session with due cards
-    console.log("Start quick review");
+    // Navigate to review session with due cards
+    router.push("/game/review?mode=quick");
   };
 
   const handleStartBossRush = () => {
-    // TODO: Navigate to review session with overdue cards
-    console.log("Start boss rush");
+    // Navigate to review session with overdue cards
+    router.push("/game/review?mode=boss-rush");
   };
 
   if (loading) {

@@ -8,6 +8,7 @@ import { COLORS } from "../core/theme/constants";
 import OnboardingScreen from "./onboarding";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { STORAGE_KEYS } from "../constants/config";
+import { setupNotificationListeners } from "../core/notifications/notificationService";
 
 export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
@@ -21,6 +22,9 @@ export default function RootLayout() {
 
         // Seed initial data
         await seedDatabase();
+
+        // Setup notification listeners without router (will be setup in tabs)
+        setupNotificationListeners();
 
         // Check if onboarding completed
         const onboardingComplete = await AsyncStorage.getItem(
@@ -68,7 +72,13 @@ export default function RootLayout() {
           },
         }}
       >
+        <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="loadout" options={{ title: "Loadout" }} />
+        <Stack.Screen name="game/swipe" options={{ headerShown: false }} />
+        <Stack.Screen name="game/review" options={{ headerShown: false }} />
+        <Stack.Screen name="summary" options={{ title: "Summary" }} />
+        <Stack.Screen name="dungeon" options={{ title: "Review Dungeon" }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
       </Stack>
     </GestureHandlerRootView>

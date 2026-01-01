@@ -1,6 +1,6 @@
 // src/app/summary.tsx
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Pressable, Share } from "react-native";
+import { View, Text, StyleSheet, Share } from "react-native";
 import { useRouter } from "expo-router";
 import Animated, {
   useSharedValue,
@@ -14,7 +14,7 @@ import Animated, {
 import { Screen } from "../components/layout/Screen";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
-import { COLORS, SPACING, RADIUS } from "../core/theme/constants";
+import { COLORS, SPACING } from "../core/theme/constants";
 import { useStore } from "../store";
 import { formatDuration } from "../utils/date";
 import { logger } from "../utils/validation";
@@ -22,7 +22,6 @@ import * as Haptics from "expo-haptics";
 
 export default function SummaryScreen() {
   const router = useRouter();
-  const sessionStats = useStore((state) => state.sessionStats);
   const endSession = useStore((state) => state.endSession);
 
   const [summary, setSummary] = useState({

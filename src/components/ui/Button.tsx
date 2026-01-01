@@ -5,7 +5,6 @@ import {
   Text,
   StyleSheet,
   ViewStyle,
-  TextStyle,
   ActivityIndicator,
 } from "react-native";
 import Animated, {
@@ -173,11 +172,3 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 });
-
-
-
-
-
-
-
-

@@ -1,94 +1,23 @@
-// src/app/_layout.tsx
-import React, { useEffect, useState } from "react";
-import { Stack } from "expo-router";
+// src/app/(tabs)/_layout.tsx
+import React, { useEffect } from "react";
+import { Tabs, useRouter } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StatusBar } from "expo-status-bar";
-import * as SplashScreen from "expo-splash-screen";
-import { runMigrations, seedDatabase } from "../../core/db/client";
-import { logger } from "../../utils/validation";
 import { COLORS } from "../../core/theme/constants";
-import OnboardingScreen from "../onboarding";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { setupNotificationListeners } from "../../core/notifications/notificationService";
 
-// Prevent auto-hiding splash screen
-SplashScreen.preventAutoHideAsync();
-
-export default function RootLayout() {
-  const [isReady, setIsReady] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(false);
+export default function TabLayout() {
+  const router = useRouter();
 
   useEffect(() => {
-    async function prepare() {
-      try {
-        logger.info("Initializing app...");
-
-        // Run database migrations
-        await runMigrations();
-        logger.info("Database migrations completed");
-
-        // Seed initial data
-        await seedDatabase();
-        logger.info("Database seeding completed");
-
-        // Check if onboarding was completed
-        const onboardingComplete = await AsyncStorage.getItem(
-          "onboarding_complete"
-        );
-
-        if (!onboardingComplete) {
-          setShowOnboarding(true);
-          logger.info("First time user - showing onboarding");
-        }
-
-        // Small delay to ensure everything is loaded
-        await new Promise((resolve) => setTimeout(resolve, 500));
-
-        setIsReady(true);
-        logger.info("App initialization complete");
-      } catch (error) {
-        logger.error("App initialization failed", error);
-        // Still set ready to prevent infinite loading
-        setIsReady(true);
-      }
-    }
-
-    prepare();
-  }, []);
-
-  useEffect(() => {
-    if (isReady) {
-      SplashScreen.hideAsync();
-    }
-  }, [isReady]);
-
-  const handleOnboardingComplete = async () => {
-    try {
-      await AsyncStorage.setItem("onboarding_complete", "true");
-      setShowOnboarding(false);
-      logger.info("Onboarding completed");
-    } catch (error) {
-      logger.error("Failed to save onboarding state", error);
-      setShowOnboarding(false);
-    }
-  };
-
-  if (!isReady) {
-    return null; // Splash screen is still visible
-  }
-
-  if (showOnboarding) {
-    return (
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <StatusBar style="light" />
-        <OnboardingScreen onComplete={handleOnboardingComplete} />
-      </GestureHandlerRootView>
-    );
-  }
-
+    // Setup notification listeners with router access for navigation
+    const unsubscribe = setupNotificationListeners(router);
+    return unsubscribe;
+  }, [router]);
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style="light" />
-      <Stack
+      <Tabs
         screenOptions={{
           headerStyle: {
             backgroundColor: COLORS.background.primary,
@@ -97,39 +26,29 @@ export default function RootLayout() {
           headerTitleStyle: {
             fontWeight: "bold",
           },
-          contentStyle: {
-            backgroundColor: COLORS.background.primary,
+          tabBarActiveTintColor: COLORS.accent.green,
+          tabBarInactiveTintColor: COLORS.text.secondary,
+          tabBarStyle: {
+            backgroundColor: COLORS.background.secondary,
+            borderTopColor: COLORS.background.tertiary,
           },
         }}
       >
-        <Stack.Screen
+        <Tabs.Screen
           name="index"
           options={{
+            title: "Home",
             headerShown: false,
           }}
         />
-        <Stack.Screen
+        <Tabs.Screen
           name="profile"
           options={{
             title: "Profile",
-            presentation: "modal",
+            headerShown: true,
           }}
         />
-        <Stack.Screen
-          name="settings"
-          options={{
-            title: "Settings",
-            presentation: "modal",
-          }}
-        />
-        <Stack.Screen
-          name="dungeon"
-          options={{
-            title: "Review Dungeon",
-            presentation: "card",
-          }}
-        />
-      </Stack>
+      </Tabs>
     </GestureHandlerRootView>
   );
 }

@@ -136,7 +136,7 @@ class AccessibilityManager {
   /**
    * Announce message to screen reader
    */
-  announce(message: string, options?: { queue?: boolean }) {
+  announce(message: string) {
     if (this.state.isScreenReaderEnabled) {
       AccessibilityInfo.announceForAccessibility(message);
       logger.debug("Announced to screen reader", { message });

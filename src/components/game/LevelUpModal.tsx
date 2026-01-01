@@ -13,7 +13,6 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withDelay,
-  withSequence,
 } from "react-native-reanimated";
 import { COLORS, SPACING, RADIUS } from "../../core/theme/constants";
 import * as Haptics from "expo-haptics";
