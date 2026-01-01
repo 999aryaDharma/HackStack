@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "HackStack",
-    "slug": "HackStack",
+    "slug": "hackstack",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -12,12 +12,16 @@
       "resizeMode": "contain",
       "backgroundColor": "#0D1117"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.hackstack.app",
       "infoPlist": {
-        "UIBackgroundModes": ["audio"]
+        "UIBackgroundModes": [
+          "audio"
+        ]
       }
     },
     "android": {
@@ -26,7 +30,10 @@
         "backgroundColor": "#0D1117"
       },
       "package": "com.hackstack.app",
-      "permissions": ["VIBRATE", "INTERNET"]
+      "permissions": [
+        "VIBRATE",
+        "INTERNET"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -53,8 +60,12 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "your-project-id"
+        "projectId": "c4bd7aaa-606d-4233-8ece-7451be93ba23"
+      },
+      "router": {
+        "origin": "https://hackstack.app"
       }
-    }
+    },
+    "owner": "aryaakks-organization"
   }
 }
