@@ -1,5 +1,12 @@
 // App.tsx
-// Ini adalah "jembatan" supaya Expo menjalankan kode di folder src/
-import App from "./src/app/index";
+/**
+ * Main Entry Point - DO NOT use any navigation hooks here!
+ * This is OUTSIDE NavigationContainer
+ */
+import { registerRootComponent } from "expo";
+import AppLayout from "./src/app/_layout";
 
-export default App;
+// Register the root component
+registerRootComponent(AppLayout);
+
+export default AppLayout;

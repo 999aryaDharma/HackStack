@@ -4,16 +4,62 @@ import { Tabs, useRouter } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StatusBar } from "expo-status-bar";
 import { COLORS } from "../../core/theme/constants";
-import { setupNotificationListeners } from "../../core/notifications/notificationService";
+import {
+  subscribeToNavigationEvents,
+  NotificationNavigationEvent,
+} from "../../core/notifications/notificationService";
+import { logger } from "../../utils/validation";
 
 export default function TabLayout() {
   const router = useRouter();
 
   useEffect(() => {
-    // Setup notification listeners with router access for navigation
-    const unsubscribe = setupNotificationListeners(router);
-    return unsubscribe;
+    logger.info("Tab layout mounted, setting up navigation listener");
+
+    // Subscribe to notification navigation events
+    const unsubscribe = subscribeToNavigationEvents(
+      (event: NotificationNavigationEvent) => {
+        logger.info("Handling notification navigation", {
+          type: event.type,
+          data: event.data,
+        });
+
+        // Handle based on notification type
+        switch (event.type) {
+          case "review":
+            logger.info("Navigating to dungeon");
+            router.push("/dungeon");
+            break;
+
+          case "achievement":
+            logger.info("Navigating to profile");
+            router.push("/(tabs)/profile");
+            break;
+
+          case "streak":
+            logger.info("Navigating to profile");
+            router.push("/(tabs)/profile");
+            break;
+
+          case "level_up":
+            logger.info("Level up notification, showing celebration");
+            // Could trigger a modal or animation here
+            break;
+
+          default:
+            logger.warn("Unknown notification type", { type: event.type });
+        }
+      }
+    );
+
+    logger.info("Navigation listener setup complete");
+
+    return () => {
+      logger.info("Cleaning up navigation listener");
+      unsubscribe();
+    };
   }, [router]);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style="light" />
@@ -52,3 +98,4 @@ export default function TabLayout() {
     </GestureHandlerRootView>
   );
 }
+  

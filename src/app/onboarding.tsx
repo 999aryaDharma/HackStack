@@ -1,5 +1,5 @@
 // src/app/onboarding.tsx
-import React, { useState, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -10,7 +10,12 @@ import {
   Dimensions,
   FlatList,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { COLORS, SPACING, RADIUS } from "../core/theme/constants";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { STORAGE_KEYS } from "../constants/config";
+import { logger } from "../utils/validation";
+import { trackNavigation } from "../utils/debugNavigation";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -52,27 +57,56 @@ const SLIDES: OnboardingSlide[] = [
   },
 ];
 
-export default function OnboardingScreen({
-  onComplete,
-}: {
-  onComplete: () => void;
-}) {
+export default function OnboardingScreen() {
+  const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
 
-  const handleNext = () => {
+  useEffect(() => {
+    trackNavigation("Onboarding", "mounted");
+    return () => trackNavigation("Onboarding", "unmounted");
+  }, []);
+
+  const handleNext = async () => {
+    logger.info("Onboarding: Next button pressed", {
+      currentIndex,
+      isLastSlide: currentIndex === SLIDES.length - 1,
+    });
+
     if (currentIndex < SLIDES.length - 1) {
       const nextIndex = currentIndex + 1;
       flatListRef.current?.scrollToIndex({ index: nextIndex });
       setCurrentIndex(nextIndex);
+      logger.debug("Moved to slide", { index: nextIndex });
     } else {
-      onComplete();
+      logger.info("Onboarding: Completing onboarding");
+      await completeOnboarding();
     }
   };
 
-  const handleSkip = () => {
-    onComplete();
+  const handleSkip = async () => {
+    logger.info("Onboarding: Skip button pressed");
+    await completeOnboarding();
+  };
+
+  const completeOnboarding = async () => {
+    try {
+      trackNavigation("Onboarding", "completing");
+      logger.info("Saving onboarding completion status");
+      await AsyncStorage.setItem(STORAGE_KEYS.onboardingComplete, "true");
+      logger.info("✓ Onboarding completed");
+
+      // Navigate to main app
+      logger.info("Navigating to home");
+      trackNavigation("Onboarding", "navigating to tabs");
+      router.replace("/(tabs)");
+    } catch (error) {
+      logger.error("Failed to complete onboarding", error);
+      trackNavigation("Onboarding", "error during completion");
+      // Still navigate to avoid being stuck
+      router.replace("/(tabs)");
+    }
   };
 
   const renderSlide = ({ item }: { item: OnboardingSlide }) => {
@@ -147,6 +181,7 @@ export default function OnboardingScreen({
             e.nativeEvent.contentOffset.x / SCREEN_WIDTH
           );
           setCurrentIndex(index);
+          logger.debug("Scrolled to slide", { index });
         }}
       />
 

@@ -20,7 +20,7 @@ import { FloatingXP } from "../../components/game/FloatingXP";
 import { useHaptics } from "../../core/hooks/useHaptics";
 import { useSounds } from "../../core/hooks/useSounds";
 import { useStore } from "../../store";
-import { logger } from "../../utils/logger";
+import { logger } from "../../utils/validation";
 
 interface ReviewSessionStats {
   total: number;

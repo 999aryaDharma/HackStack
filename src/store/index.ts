@@ -10,7 +10,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createGameSlice, GameSlice } from "./slices/gameSlice";
 import { createDeckSlice, DeckSlice } from "./slices/deckSlice";
 import { createSettingsSlice, SettingsSlice } from "./slices/settingsSlice";
-import { logger } from "../utils/logger";
+import { logger } from "../utils/validation";
 
 // ============================================================================
 // STORE TYPE DEFINITION

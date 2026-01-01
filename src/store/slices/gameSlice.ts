@@ -7,7 +7,7 @@
 import { StateCreator } from "zustand";
 import { getXPForLevel, TITLES } from "../../core/theme/constants";
 import { SessionStats, SessionSummary } from "../../types";
-import { logger } from "../../utils/logger";
+import { logger } from "../../utils/validation";
 import * as Haptics from "expo-haptics";
 
 // ============================================================================

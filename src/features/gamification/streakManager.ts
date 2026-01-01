@@ -2,7 +2,7 @@
 import { db } from "../../core/db/client";
 import { profiles } from "../../core/db/schema";
 import { eq } from "drizzle-orm";
-import { logger } from "../../utils/logger";
+import { logger } from "../../utils/validation";
 import {
   getStartOfDay,
   getEndOfDay,

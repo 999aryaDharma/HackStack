@@ -14,7 +14,7 @@ import {
   calculateXP,
   isSpeedBonusEligible,
 } from "../../features/gamification/xpCalculator";
-import { logger } from "../../utils/logger";
+import { logger } from "../../utils/validation";
 import { performanceMonitor } from "../../utils/performance";
 
 export interface GameFlowConfig {

@@ -41,7 +41,7 @@ import {
 import { useHaptics } from "../../core/hooks/useHaptics";
 import { useSounds } from "../../core/hooks/useSounds";
 import { useResponseTime } from "../../core/hooks/useTimer";
-import { logger } from "../../utils/logger";
+import { logger } from "../../utils/validation";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 

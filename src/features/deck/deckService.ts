@@ -4,7 +4,7 @@ import { getGeminiClient } from "../../core/ai/geminiClient";
 import { db } from "../../core/db/client";
 import { cards } from "../../core/db/schema";
 import { eq, and, gte } from "drizzle-orm";
-import { logger } from "../../utils/logger";
+import { logger } from "../../utils/validation";
 
 export class DeckService {
   private geminiClient = getGeminiClient();

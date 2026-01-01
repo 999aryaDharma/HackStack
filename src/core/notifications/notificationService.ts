@@ -1,11 +1,9 @@
+// src/core/notifications/notificationService.ts
 /**
- * Notification Service
+ * Notification Service - Fixed Version
  *
- * Manages push notifications for:
- * - Review reminders (cards due)
- * - Streak notifications
- * - Achievement unlocks
- * - Session reminders
+ * Manages push notifications without direct router dependency
+ * Uses event emitter pattern for navigation
  */
 
 import * as Notifications from "expo-notifications";
@@ -23,16 +21,41 @@ Notifications.setNotificationHandler({
   }),
 });
 
-export interface NotificationSchedule {
-  id: string;
-  type: "review" | "streak" | "achievement" | "session";
-  userId: string;
-  title: string;
-  body: string;
+// Simple event emitter
+class SimpleEventEmitter {
+  private listeners: Map<string, Function[]> = new Map();
+
+  on(event: string, callback: Function) {
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, []);
+    }
+    this.listeners.get(event)!.push(callback);
+  }
+
+  off(event: string, callback: Function) {
+    const eventListeners = this.listeners.get(event);
+    if (eventListeners) {
+      const index = eventListeners.indexOf(callback);
+      if (index > -1) {
+        eventListeners.splice(index, 1);
+      }
+    }
+  }
+
+  emit(event: string, data?: any) {
+    const eventListeners = this.listeners.get(event);
+    if (eventListeners) {
+      eventListeners.forEach((callback) => callback(data));
+    }
+  }
+}
+
+// Event emitter for navigation
+const navigationEmitter = new SimpleEventEmitter();
+
+export interface NotificationNavigationEvent {
+  type: "review" | "achievement" | "streak" | "level_up";
   data?: Record<string, any>;
-  scheduledFor?: number; // Unix timestamp
-  sent: boolean;
-  createdAt: number;
 }
 
 export class NotificationService {
@@ -41,6 +64,7 @@ export class NotificationService {
 
   constructor(userId: string) {
     this.userId = userId;
+    logger.info("NotificationService initialized", { userId });
   }
 
   /**
@@ -51,12 +75,14 @@ export class NotificationService {
       const { status } = await Notifications.getPermissionsAsync();
 
       if (status === "granted") {
+        logger.info("Notification permissions already granted");
         return true;
       }
 
       const { status: newStatus } =
         await Notifications.requestPermissionsAsync();
 
+      logger.info("Notification permission requested", { status: newStatus });
       return newStatus === "granted";
     } catch (error) {
       logger.error("Failed to request notification permissions", error);
@@ -66,12 +92,12 @@ export class NotificationService {
 
   /**
    * Schedule review reminder notification
-   * - Notifies user when cards are due
-   * - Scheduled for user's typical usage hour
-   * - Skips if user already reviewed today
    */
   async scheduleReviewReminder(dueCardCount: number): Promise<void> {
-    if (this.reviewReminderScheduled) return;
+    if (this.reviewReminderScheduled) {
+      logger.debug("Review reminder already scheduled, skipping");
+      return;
+    }
 
     try {
       // Check if user has already reviewed today
@@ -115,11 +141,16 @@ export class NotificationService {
         });
 
         logger.info("Review reminder scheduled", {
-          time: notificationTime,
+          time: notificationTime.toISOString(),
           cardCount: dueCardCount,
+          secondsFromNow: Math.ceil(secondsFromNow),
         });
 
         this.reviewReminderScheduled = true;
+      } else {
+        logger.warn("Cannot schedule reminder in the past", {
+          secondsFromNow,
+        });
       }
     } catch (error) {
       logger.error("Failed to schedule review reminder", error);
@@ -148,6 +179,11 @@ export class NotificationService {
         },
         trigger: null,
       });
+
+      logger.info("Achievement notification sent", {
+        name: achievementName,
+        xpReward,
+      });
     } catch (error) {
       logger.error("Failed to send achievement notification", error);
     }
@@ -174,6 +210,8 @@ export class NotificationService {
           },
           trigger: null,
         });
+
+        logger.info("Streak notification sent", { days: streakDays });
       }
     } catch (error) {
       logger.error("Failed to send streak notification", error);
@@ -198,6 +236,8 @@ export class NotificationService {
         },
         trigger: null,
       });
+
+      logger.info("Level up notification sent", { level: newLevel });
     } catch (error) {
       logger.error("Failed to send level up notification", error);
     }
@@ -210,7 +250,7 @@ export class NotificationService {
     try {
       await Notifications.cancelAllScheduledNotificationsAsync();
       this.reviewReminderScheduled = false;
-      logger.debug("All notifications cancelled");
+      logger.info("All notifications cancelled");
     } catch (error) {
       logger.error("Failed to cancel notifications", error);
     }
@@ -248,48 +288,39 @@ export class NotificationService {
   }
 
   /**
-   * Handle notification response with navigation
+   * Handle notification response
+   * Emits event instead of directly navigating
    */
   static handleNotificationResponse(
-    response: Notifications.NotificationResponse,
-    router?: any
+    response: Notifications.NotificationResponse
   ) {
     const { data } = response.notification.request.content;
 
-    logger.info("Notification tapped", { type: data?.type as string });
+    logger.info("Notification tapped", { type: data?.type as string, data });
 
-    // Handle based on notification type
-    if (router) {
-      switch (data?.type) {
-        case "review":
-          // Navigate to review screen
-          router.push("/dungeon");
-          break;
-        case "achievement":
-          // Navigate to achievements screen
-          router.push("/(tabs)/profile");
-          break;
-        case "streak":
-          // Navigate to profile/streak screen
-          router.push("/(tabs)/profile");
-          break;
-        case "level_up":
-          // Show celebration animation
-          break;
-      }
-    }
+    // Emit navigation event
+    const event: NotificationNavigationEvent = {
+      type: (data?.type as any) || "review",
+      data: data as Record<string, any>,
+    };
+
+    navigationEmitter.emit("navigate", event);
   }
 }
 
 /**
- * Setup notification listeners with navigation support
+ * Setup notification listeners
+ * Returns cleanup function
  */
-export function setupNotificationListeners(router?: any) {
+export function setupNotificationListeners(): () => void {
+  logger.info("Setting up notification listeners");
+
   // Handle notifications received while app is in foreground
   const foregroundSubscription = Notifications.addNotificationReceivedListener(
     (notification) => {
-      logger.debug("Notification received", {
+      logger.info("Notification received in foreground", {
         title: notification.request.content.title || "unknown",
+        data: notification.request.content.data,
       });
     }
   );
@@ -297,11 +328,39 @@ export function setupNotificationListeners(router?: any) {
   // Handle notification taps
   const responseSubscription =
     Notifications.addNotificationResponseReceivedListener((response) => {
-      NotificationService.handleNotificationResponse(response, router);
+      logger.info("Notification response received", {
+        data: response.notification.request.content.data,
+      });
+      NotificationService.handleNotificationResponse(response);
     });
 
+  logger.info("Notification listeners active");
+
+  // Return cleanup function
   return () => {
+    logger.info("Cleaning up notification listeners");
     foregroundSubscription.remove();
     responseSubscription.remove();
   };
+}
+
+/**
+ * Subscribe to navigation events
+ * Use this in components with router access
+ */
+export function subscribeToNavigationEvents(
+  callback: (event: NotificationNavigationEvent) => void
+): () => void {
+  navigationEmitter.on("navigate", callback);
+
+  return () => {
+    navigationEmitter.off("navigate", callback);
+  };
+}
+
+/**
+ * Get notification emitter for testing
+ */
+export function getNavigationEmitter() {
+  return navigationEmitter;
 }

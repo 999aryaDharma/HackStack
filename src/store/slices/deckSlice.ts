@@ -6,7 +6,7 @@
 
 import { StateCreator } from "zustand";
 import { Card, Loadout } from "../../types";
-import { logger } from "../../utils/logger";
+import { logger } from "../../utils/validation";
 
 // ============================================================================
 // TYPE DEFINITIONS
