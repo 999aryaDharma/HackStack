@@ -1,6 +1,6 @@
 {
   "cli": {
-    "version": ">= 16.28.0",
+    "version": ">= 15.0.0",
     "appVersionSource": "remote"
   },
   "build": {
@@ -8,6 +8,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "android": {
+        "gradleCommand": ":app:assembleDebug",
         "buildType": "apk"
       }
     },
@@ -19,9 +20,8 @@
     },
     "production": {
       "android": {
-        "buildType": "apk"
-      },
-      "environment": "production"
+        "buildType": "app-bundle"
+      }
     }
   },
   "submit": {

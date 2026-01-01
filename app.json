@@ -12,16 +12,12 @@
       "resizeMode": "contain",
       "backgroundColor": "#0D1117"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.hackstack.app",
       "infoPlist": {
-        "UIBackgroundModes": [
-          "audio"
-        ]
+        "UIBackgroundModes": ["audio"]
       }
     },
     "android": {
@@ -30,22 +26,14 @@
         "backgroundColor": "#0D1117"
       },
       "package": "com.hackstack.app",
-      "permissions": [
-        "VIBRATE",
-        "INTERNET"
-      ]
+      "permissions": ["VIBRATE", "INTERNET"]
     },
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
     "plugins": [
-      [
-        "expo-router",
-        {
-          "origin": "https://hackstack.app"
-        }
-      ],
+      "expo-router",
       [
         "expo-font",
         {
