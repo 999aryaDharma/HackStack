@@ -148,10 +148,14 @@ export class DeckService {
   }
 
   /**
-   * Prefetch cards in background
+   * Prefetch cards in background, save to cache, and return them
    */
-  async prefetchCards(loadout: Loadout, count: number = 5): Promise<void> {
+  async prefetchCards(
+    loadout: Loadout,
+    count: number = 5
+  ): Promise<Card[]> {
     try {
+      logger.info(`Fetching and caching ${count} new cards...`);
       const newCards = await this.geminiClient.generateCards({
         language: loadout.language,
         topics: loadout.topics,
@@ -161,9 +165,11 @@ export class DeckService {
       });
 
       await this.saveToCache(newCards);
-      logger.debug(`Prefetched ${count} cards`);
+      logger.info(`Fetched and cached ${newCards.length} cards successfully.`);
+      return newCards;
     } catch (error) {
-      logger.error("Prefetch failed", error);
+      logger.error("Card fetch/cache failed", error);
+      return [];
     }
   }
 

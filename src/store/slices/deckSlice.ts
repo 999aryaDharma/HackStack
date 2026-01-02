@@ -7,6 +7,9 @@
 import { StateCreator } from "zustand";
 import { Card, Loadout } from "../../types";
 import { logger } from "../../utils/validation";
+import { DeckService } from "../../features/deck/deckService";
+
+const deckService = new DeckService();
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -26,6 +29,7 @@ export interface DeckSlice {
   setLoadout: (loadout: Loadout) => void;
   setGenerating: (isGenerating: boolean) => void;
   needsRefill: () => boolean;
+  refillQueue: () => Promise<void>;
 }
 
 // ============================================================================
@@ -90,10 +94,9 @@ export const createDeckSlice: StateCreator<DeckSlice> = (set, get) => ({
 
     set({ currentIndex: currentIndex + 1 });
 
-    // Check if we need to prefetch more cards
-    const remaining = queue.length - (currentIndex + 1);
-    if (remaining <= 3) {
-      logger.info("Low card count, prefetch recommended", { remaining });
+    // Asynchronously trigger a refill if needed
+    if (get().needsRefill()) {
+      get().refillQueue();
     }
 
     return card;
@@ -108,6 +111,31 @@ export const createDeckSlice: StateCreator<DeckSlice> = (set, get) => ({
       loadout: null,
       isGenerating: false,
     });
+  },
+
+  refillQueue: async () => {
+    const { loadout, isGenerating, needsRefill } = get();
+
+    if (!loadout || isGenerating || !needsRefill()) {
+      logger.debug("Skipping refill", {
+        hasLoadout: !!loadout,
+        isGenerating,
+        needsRefill: needsRefill(),
+      });
+      return;
+    }
+
+    set({ isGenerating: true });
+    try {
+      const newCards = await deckService.prefetchCards(loadout);
+      if (newCards.length > 0) {
+        get().addCards(newCards);
+      }
+    } catch (error) {
+      logger.error("Failed to refill queue", error);
+    } finally {
+      set({ isGenerating: false });
+    }
   },
 
   // ========================================
@@ -142,13 +170,6 @@ export const createDeckSlice: StateCreator<DeckSlice> = (set, get) => ({
     const { queue, currentIndex } = get();
     const remaining = queue.length - currentIndex;
     const needsRefill = remaining < 3;
-
-    if (needsRefill) {
-      logger.debug("Queue needs refill", {
-        remaining,
-        threshold: 3,
-      });
-    }
 
     return needsRefill;
   },

@@ -1,15 +1,32 @@
 // src/app/_layout.tsx
 import React, { useEffect, useState } from "react";
 import { Stack } from "expo-router";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StatusBar } from "expo-status-bar";
 import { View, ActivityIndicator, StyleSheet, Text } from "react-native";
 import { runMigrations, seedDatabase } from "../core/db/client";
 import { COLORS, SPACING } from "../core/theme/constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { STORAGE_KEYS } from "../constants/config";
-import { setupNotificationListeners } from "../core/notifications/notificationService";
 import { logger } from "../utils/validation";
+
+// Safe notification setup
+async function setupNotificationsIfAvailable() {
+  try {
+    // Dynamic import to avoid issues if module is not available
+    const notificationModule =
+      await import("../core/notifications/notificationService");
+
+    if (notificationModule && notificationModule.setupNotificationListeners) {
+      notificationModule.setupNotificationListeners();
+      logger.info("Notifications setup successful");
+    }
+  } catch (error) {
+    logger.warn(
+      "Notification module not available or setup function missing",
+      error
+    );
+  }
+}
 
 type AppState = "loading" | "ready" | "error";
 
@@ -26,17 +43,17 @@ export default function RootLayout() {
         // Run database migrations
         logger.info("Step 1/5: Running database migrations");
         await runMigrations();
-        logger.info("✓ Database migrations complete");
+        logger.info("Database migrations complete");
 
         // Seed initial data
         logger.info("Step 2/5: Seeding database");
         await seedDatabase();
-        logger.info("✓ Database seeded");
+        logger.info("Database seeded");
 
-        // Setup notification listeners (no router dependency)
+        // Setup notification listeners (safe)
         logger.info("Step 3/5: Setting up notification system");
-        setupNotificationListeners();
-        logger.info("✓ Notification system ready");
+        await setupNotificationsIfAvailable();
+        logger.info("Notification system ready");
 
         // Check if onboarding completed
         logger.info("Step 4/5: Checking onboarding status");
@@ -50,9 +67,9 @@ export default function RootLayout() {
         await new Promise((resolve) => setTimeout(resolve, 100));
 
         if (onboardingComplete) {
-          logger.info("✓ Onboarding already completed");
+          logger.info("Onboarding already completed");
         } else {
-          logger.info("⚠ Onboarding not completed");
+          logger.info("Onboarding not completed");
         }
 
         setAppState("ready");
@@ -68,12 +85,6 @@ export default function RootLayout() {
     prepare();
   }, []);
 
-  const handleOnboardingComplete = async () => {
-    // This function is no longer needed since onboarding
-    // handles its own completion and navigation
-    logger.info("Onboarding completion callback (deprecated)");
-  };
-
   // Loading screen
   if (appState === "loading") {
     return (
@@ -88,17 +99,16 @@ export default function RootLayout() {
   if (appState === "error") {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={styles.errorText}>❌ Error</Text>
+        <Text style={styles.errorText}>Error</Text>
         <Text style={styles.errorSubtext}>{error}</Text>
         <Text style={styles.errorHint}>Please restart the app</Text>
       </View>
     );
   }
 
-  // Main app (ready state includes both onboarding and main app)
-  // Onboarding will be shown as a route inside the navigation
+  // Main app
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <>
       <StatusBar style="light" />
       <Stack
         screenOptions={{
@@ -112,10 +122,11 @@ export default function RootLayout() {
           contentStyle: {
             backgroundColor: COLORS.background.primary,
           },
+          animation: "slide_from_right",
         }}
       >
-        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="loadout" options={{ title: "Choose Loadout" }} />
         <Stack.Screen name="game/swipe" options={{ headerShown: false }} />
@@ -130,7 +141,7 @@ export default function RootLayout() {
         />
         <Stack.Screen name="settings" options={{ title: "Settings" }} />
       </Stack>
-    </GestureHandlerRootView>
+    </>
   );
 }
 

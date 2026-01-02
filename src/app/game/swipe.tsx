@@ -21,6 +21,8 @@ import { HUD } from "../../components/game/HUD";
 import { LevelUpModal } from "../../components/game/LevelUpModal";
 import { FloatingXP } from "../../components/game/FloatingXP";
 import { ScreenShake } from "../../components/game/ScreenShake";
+import { FireModeOverlay } from "../../components/game/FireModeOverlay";
+import { EnhancedConfetti } from "../../components/game/EnhancedConfetti";
 import { COLORS, SPACING, RADIUS } from "../../core/theme/constants";
 import { Card } from "../../types";
 import {
@@ -65,6 +67,7 @@ export default function GameSwipeScreen() {
   const addXP = useStore((state) => state.addXP);
   const checkLevelUp = useStore((state) => state.checkLevelUp);
   const consumeCard = useStore((state) => state.consumeCard);
+  const addCards = useStore((state) => state.addCards);
   const setQueue = useStore((state) => state.setQueue);
   const loadout = useStore((state) => state.loadout);
 
@@ -78,6 +81,7 @@ export default function GameSwipeScreen() {
   >([]);
   const [shouldShake, setShouldShake] = useState(false);
   const [isPrefetching, setIsPrefetching] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   // Services
   const deckService = new DeckService();
@@ -117,6 +121,18 @@ export default function GameSwipeScreen() {
     return () => clearInterval(interval);
   }, []);
 
+  // Check for perfect session
+  useEffect(() => {
+    const checkPerfectSession = () => {
+      const stats = useStore.getState().sessionStats;
+      if (stats.correct >= 5 && stats.wrong === 0 && stats.correct >= stats.wrong) {
+        setShowConfetti(true);
+      }
+    };
+
+    checkPerfectSession();
+  }, []);
+
   // ========================================
   // INITIALIZATION
   // ========================================
@@ -134,8 +150,9 @@ export default function GameSwipeScreen() {
       startSession();
 
       // Fetch initial cards
-      logger.info("Fetching initial card batch");
-      const cards = await deckService.fetchCards(loadout, 10);
+      const initialCount = loadout.sessionLength || 10;
+      logger.info(`Fetching initial card batch (${initialCount})`);
+      const cards = await deckService.fetchCards(loadout, initialCount);
 
       logger.info("Cards fetched successfully", {
         count: cards.length,
@@ -148,9 +165,6 @@ export default function GameSwipeScreen() {
 
       // Start response timer for first card
       startTimer();
-
-      // Prefetch next batch in background
-      setTimeout(() => prefetchCards(), 2000);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Unknown error";
       logger.error("Failed to initialize session", err);
@@ -169,9 +183,15 @@ export default function GameSwipeScreen() {
       setIsPrefetching(true);
       logger.info("Prefetching next batch of cards");
 
-      await deckService.prefetchCards(loadout, 5);
-
-      logger.info("Prefetch completed");
+      const newCards = await deckService.prefetchCards(loadout, 5);
+      
+      if (newCards.length > 0) {
+        addCards(newCards);
+        setLocalDeck((prev) => [...prev, ...newCards]);
+        logger.info("Prefetch completed and added to deck", { count: newCards.length });
+      } else {
+        logger.warn("Prefetch returned no cards");
+      }
     } catch (err) {
       logger.error("Prefetch failed", err);
     } finally {
@@ -388,6 +408,18 @@ export default function GameSwipeScreen() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView>
         <ScreenShake trigger={shouldShake}>
+          {/* Fire Mode Overlay */}
+          <FireModeOverlay active={comboCount >= 5} />
+
+          {/* Confetti for perfect session */}
+          {showConfetti && (
+            <EnhancedConfetti
+              active={showConfetti}
+              onComplete={() => setShowConfetti(false)}
+              type="celebration"
+              count={100}
+            />
+          )}
           <View style={styles.container}>
             {/* HUD */}
             <HUD

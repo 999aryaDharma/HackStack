@@ -50,7 +50,7 @@ export default function LoadoutScreen() {
 
     logger.info("Starting session with loadout", loadout);
     setLoadout(loadout);
-    router.push("/");
+    router.push("/game/swipe");
   };
 
   return (

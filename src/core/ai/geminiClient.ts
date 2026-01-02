@@ -1,5 +1,6 @@
 // src/core/ai/geminiClient.ts
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GEMINI_API_KEY } from "@env";
 import { Card, Difficulty } from "../../types";
 import { validateCard } from "./validators";
 import { buildSystemPrompt, buildUserPrompt } from "./prompts";
@@ -14,9 +15,12 @@ export interface GenerateRequest {
 
 export class GeminiClient {
   private client: GoogleGenerativeAI;
-  private model = "gemini-1.5-pro-latest";
+  private model = "gemini-2.5-flash";
 
   constructor(apiKey: string) {
+    if (!apiKey) {
+      throw new Error("Gemini API key not found in constructor");
+    }
     this.client = new GoogleGenerativeAI(apiKey);
   }
 
@@ -35,16 +39,25 @@ export class GeminiClient {
           temperature: 0.8,
           topK: 40,
           topP: 0.95,
-          maxOutputTokens: 2048,
+          maxOutputTokens: 8192,
         },
       });
 
+      console.log("Gemini raw response:", result.response);
       const text = result.response.text();
+      console.log("Gemini response text:", text);
+      console.log("Gemini prompt feedback:", result.response.promptFeedback);
+
 
       // Remove markdown code blocks if present
       const cleaned = text.replace(/```json\n?|```\n?/g, "").trim();
 
+      if (!cleaned) {
+        throw new Error("Received empty response from Gemini API.");
+      }
+
       const parsed = JSON.parse(cleaned);
+
 
       if (!parsed.cards || !Array.isArray(parsed.cards)) {
         throw new Error("Invalid response format");
@@ -83,11 +96,10 @@ let geminiInstance: GeminiClient | null = null;
 
 export function getGeminiClient(): GeminiClient {
   if (!geminiInstance) {
-    const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error("Gemini API key not found");
+    if (!GEMINI_API_KEY) {
+      throw new Error("Gemini API key not found. Check your .env file.");
     }
-    geminiInstance = new GeminiClient(apiKey);
+    geminiInstance = new GeminiClient(GEMINI_API_KEY);
   }
   return geminiInstance;
 }

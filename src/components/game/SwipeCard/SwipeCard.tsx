@@ -1,43 +1,38 @@
 // src/components/game/SwipeCard/SwipeCard.tsx
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { StyleSheet, Text, View, Dimensions, Pressable } from "react-native";
-import { GestureDetector, Gesture } from "react-native-gesture-handler";
+import { GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
-  interpolate,
-  runOnJS,
   withTiming,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { COLORS, RADIUS, SPACING } from "../../../core/theme/constants";
 import { Card } from "../../../types";
+import { useCardPhysics } from "../../../core/hooks/useCardPhysics";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
-const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.3;
 
 interface SwipeCardProps {
   card: Card;
-  onSwipeLeft: () => void; // Salah/Lupa
-  onSwipeRight: () => void; // Benar/Ingat
+  onSwipeLeft: () => void;
+  onSwipeRight: () => void;
 }
 
 export function SwipeCard({ card, onSwipeLeft, onSwipeRight }: SwipeCardProps) {
   const [isFlipped, setIsFlipped] = useState(false);
+  const flipRotation = useSharedValue(0);
 
-  // Animation Values
-  const translateX = useSharedValue(0);
-  const translateY = useSharedValue(0);
-  const rotation = useSharedValue(0);
-  const scale = useSharedValue(0.9);
-  const flipRotation = useSharedValue(0); // 0 = depan, 180 = belakang
+  const { gesture, animatedStyle, overlayStyle } = useCardPhysics({
+    onSwipeLeft,
+    onSwipeRight,
+    onCardGrabbed: () => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    },
+  });
 
-  useEffect(() => {
-    scale.value = withSpring(1);
-  }, []);
-
-  // Flip Logic
+  // Flip animation
   const handleFlip = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (isFlipped) {
@@ -48,49 +43,6 @@ export function SwipeCard({ card, onSwipeLeft, onSwipeRight }: SwipeCardProps) {
       setIsFlipped(true);
     }
   };
-
-  const gesture = Gesture.Pan()
-    .onBegin(() => {
-      scale.value = withSpring(1.02);
-    })
-    .onUpdate((event) => {
-      // Hanya bisa swipe kalau sudah dibalik (sudah lihat jawaban)
-      // ATAU kalau kamu mau mode hardcore: bisa swipe kapan aja.
-      // Kita set: Bebas swipe kapan aja biar fluid.
-      translateX.value = event.translationX;
-      translateY.value = event.translationY;
-      rotation.value = interpolate(
-        event.translationX,
-        [-SCREEN_WIDTH, SCREEN_WIDTH],
-        [-15, 15]
-      );
-    })
-    .onEnd(() => {
-      if (translateX.value > SWIPE_THRESHOLD) {
-        translateX.value = withSpring(SCREEN_WIDTH * 1.5);
-        rotation.value = withSpring(20);
-        runOnJS(onSwipeRight)();
-      } else if (translateX.value < -SWIPE_THRESHOLD) {
-        translateX.value = withSpring(-SCREEN_WIDTH * 1.5);
-        rotation.value = withSpring(-20);
-        runOnJS(onSwipeLeft)();
-      } else {
-        translateX.value = withSpring(0);
-        translateY.value = withSpring(0);
-        rotation.value = withSpring(0);
-        scale.value = withSpring(1);
-      }
-    });
-
-  // Styles
-  const cardStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { rotate: `${rotation.value}deg` },
-      { scale: scale.value },
-    ],
-  }));
 
   const frontAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ rotateY: `${flipRotation.value}deg` }],
@@ -104,26 +56,15 @@ export function SwipeCard({ card, onSwipeLeft, onSwipeRight }: SwipeCardProps) {
     zIndex: flipRotation.value >= 90 ? 1 : 0,
   }));
 
-  const overlayStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
-      translateX.value,
-      [-SWIPE_THRESHOLD, 0, SWIPE_THRESHOLD],
-      [0.5, 0, 0.5]
-    );
-    const backgroundColor =
-      translateX.value > 0 ? COLORS.accent.green : COLORS.accent.red;
-    return { backgroundColor, opacity };
-  });
-
   return (
     <GestureDetector gesture={gesture}>
-      <Animated.View style={[styles.wrapper, cardStyle]}>
+      <Animated.View style={[styles.wrapper, animatedStyle]}>
         {/* Color Overlay Feedback */}
         <Animated.View
           style={[StyleSheet.absoluteFill, styles.overlay, overlayStyle]}
         />
 
-        {/* FRONT SIDE (Question) */}
+        {/* FRONT SIDE */}
         <Animated.View style={[styles.cardFace, frontAnimatedStyle]}>
           <View style={styles.header}>
             <Text style={styles.langBadge}>{card.lang}</Text>
@@ -137,11 +78,11 @@ export function SwipeCard({ card, onSwipeLeft, onSwipeRight }: SwipeCardProps) {
           </View>
 
           <Pressable onPress={handleFlip} style={styles.flipButton}>
-            <Text style={styles.flipText}>TAP TO REVEAL</Text>
+            <Text style={styles.flipText}>TAP TO REVEAL ANSWER</Text>
           </Pressable>
         </Animated.View>
 
-        {/* BACK SIDE (Answer) */}
+        {/* BACK SIDE */}
         <Animated.View
           style={[styles.cardFace, styles.cardBack, backAnimatedStyle]}
         >
@@ -174,14 +115,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.background.tertiary,
     padding: SPACING.lg,
-    backfaceVisibility: "hidden", // Penting untuk efek flip 3D
+    backfaceVisibility: "hidden",
     shadowColor: "#000",
     shadowOpacity: 0.4,
     shadowRadius: 10,
-    elevation: 5,
+    elevation: 8,
   },
   cardBack: {
-    backgroundColor: "#1C2128", // Sedikit lebih terang
+    backgroundColor: "#1C2128",
   },
   overlay: {
     borderRadius: RADIUS.lg,
@@ -196,9 +137,11 @@ const styles = StyleSheet.create({
     color: COLORS.accent.cyan,
     fontWeight: "bold",
     fontFamily: "monospace",
+    fontSize: 14,
     borderWidth: 1,
     borderColor: COLORS.accent.cyan,
     paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 4,
   },
   difficultyBadge: {
@@ -212,9 +155,9 @@ const styles = StyleSheet.create({
   },
   questionText: {
     color: COLORS.text.primary,
-    fontSize: 22,
+    fontSize: 20,
     fontFamily: "monospace",
-    lineHeight: 32,
+    lineHeight: 30,
   },
   label: {
     color: COLORS.accent.green,
@@ -241,9 +184,13 @@ const styles = StyleSheet.create({
   flipButton: {
     alignSelf: "center",
     padding: SPACING.md,
+    backgroundColor: "rgba(57, 211, 83, 0.1)",
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.accent.green,
   },
   flipText: {
-    color: COLORS.text.secondary,
+    color: COLORS.accent.green,
     fontSize: 12,
     letterSpacing: 1,
     fontWeight: "bold",

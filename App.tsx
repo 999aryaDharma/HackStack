@@ -1,12 +1,21 @@
 // App.tsx
-/**
- * Main Entry Point - DO NOT use any navigation hooks here!
- * This is OUTSIDE NavigationContainer
- */
-import { registerRootComponent } from "expo";
-import AppLayout from "./src/app/_layout";
+import React from "react";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { LinkPreviewContextProvider } from "expo-router/build/link/preview/LinkPreviewContext";
+import { NavigationContainer } from "@react-navigation/native";
+import RootLayout from "./src/app/_layout";
 
-// Register the root component
-registerRootComponent(AppLayout);
-
-export default AppLayout;
+export default function App() {
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <LinkPreviewContextProvider>
+          <NavigationContainer>
+            <RootLayout />
+          </NavigationContainer>
+        </LinkPreviewContextProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
+  );
+}
